@@ -24,3 +24,24 @@ class Linear(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return einsum(x, self.W, "... d_in, d_out d_in -> ... d_out")
+
+class Embedding(nn.Module):
+    def __init__(self, num_embeddings, embedding_dim, device=None, dtype=None):
+        super().__init__()
+
+        init_weights = torch.nn.init.trunc_normal_(
+            torch.zeros((num_embeddings, embedding_dim), dtype=dtype, device=device),
+            mean = 0,
+            std = 1,
+            a = -3,
+            b = 3
+        )
+        self.embedding_matrix = nn.Parameter(init_weights)
+
+    def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
+        if token_ids.dtype != torch.long:
+            token_ids = token_ids.to(torch.long)
+        # token_ids: (batch_size, sequence_length)
+        # advanced indexing into embedding matrix to produce output
+        # output: (batch_size, sequence_length, embedding_dim)
+        return self.embedding_matrix[token_ids]
