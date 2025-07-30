@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+import einops
 from einops import rearrange, einsum
 from math import sqrt
 import numpy
@@ -45,3 +46,21 @@ class Embedding(nn.Module):
         # advanced indexing into embedding matrix to produce output
         # output: (batch_size, sequence_length, embedding_dim)
         return self.embedding_matrix[token_ids]
+
+class RMSNorm(nn.Module):
+    def __init__(self, d_model, eps, device=None, dtype=None):
+        super().__init__()
+        self.d_model = d_model
+        self.eps = eps
+        self.gi = nn.Parameter(torch.ones(d_model, device=device, dtype=dtype))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        in_dtype = x.dtype
+        x = x.to(torch.float32)
+        # x: (batch_size, sequence_length, d_model)
+        x_square_mean = einops.reduce(x**2, "batch seq_len d_model -> batch seq_len", "mean")
+        rms = torch.sqrt(x_square_mean + self.eps)
+        rms = rearrange(rms, "batch seq_len -> batch seq_len 1")
+        rms_norm = (x / rms) * self.gi
+
+        return rms_norm.to(in_dtype)
