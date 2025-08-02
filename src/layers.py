@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import einops
 from einops import rearrange, einsum
-from math import sqrt
+from math import sqrt, exp
 import numpy
 
 class Linear(nn.Module):
@@ -64,3 +64,37 @@ class RMSNorm(nn.Module):
         rms_norm = (x / rms) * self.gi
 
         return rms_norm.to(in_dtype)
+
+def silu(x: torch.Tensor) -> torch.Tensor:
+    """SiLU activation function."""
+    return x * torch.sigmoid(x)
+
+class SwiGLU(nn.Module):
+    def __init__(self, d_model, d_ff, device=None, dtype=None):
+        super().__init__()
+        std = sqrt(2 / (d_model + d_ff))
+        w1_init = torch.nn.init.trunc_normal_(
+            torch.zeros(d_ff, d_model), mean=0, std=std, a=-3*std, b=3*std
+        )
+        self.W1 = nn.Parameter(w1_init)
+
+        w2_init = torch.nn.init.trunc_normal_(
+            torch.zeros(d_model, d_ff), mean=0, std=std, a=-3*std, b=3*std
+        )
+        self.W2 = nn.Parameter(w2_init)
+
+        w3_init = torch.nn.init.trunc_normal_(
+            torch.zeros(d_ff, d_model), mean=0, std=std, a=-3*std, b=3*std
+        )
+        self.W3 = nn.Parameter(w3_init)
+
+    def forward(self, x):
+        # x: ... d_model
+        W1x = einsum(x, self.W1, "... d_model, d_ff d_model -> ... d_ff")
+        W3x = einsum(x, self.W3, "... d_model, d_ff d_model -> ... d_ff")
+
+        z = silu(W1x)
+        z = z * W3x
+        res = einsum(z, self.W2, "... d_ff, d_model, d_ff -> ... d_model")
+        return res
+    
