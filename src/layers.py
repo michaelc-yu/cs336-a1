@@ -95,6 +95,6 @@ class SwiGLU(nn.Module):
 
         z = silu(W1x)
         z = z * W3x
-        res = einsum(z, self.W2, "... d_ff, d_model, d_ff -> ... d_model")
+        res = einsum(z, self.W2, "... d_ff, d_model d_ff -> ... d_model")
         return res
     
