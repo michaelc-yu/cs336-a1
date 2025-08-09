@@ -139,3 +139,14 @@ class RoPE(nn.Module):
         result[..., 1::2] = x_odd_rot   # Put rotated odd dims back in positions 1,3,5,...
         
         return result
+
+def softmax(x: torch.Tensor, dim: int) -> torch.Tensor:
+    """Applies softmax to the i-th dimension of the input tensor"""
+    # Numerical stability mathematical property: softmax(x) = softmax(x - c) for any constant c
+    max_values, max_indices = torch.max(x, dim=dim, keepdim=True)
+    x = x - max_values
+
+    numerator = torch.exp(x)
+    denom = torch.sum(numerator, dim=dim, keepdim=True)
+
+    return numerator / denom
