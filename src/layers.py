@@ -98,3 +98,44 @@ class SwiGLU(nn.Module):
         res = einsum(z, self.W2, "... d_ff, d_model d_ff -> ... d_model")
         return res
     
+class RoPE(nn.Module):
+    def __init__(self, theta: float, d_k: int, max_seq_len: int, device=None, dtype=None):
+        super().__init__()
+        self.theta = theta
+        self.d_k = d_k
+        self.max_seq_len = max_seq_len
+
+        # compute cos and sin values
+        # if max_seq_len = 4, this creates idx = [0, 1, 2, 3]
+        idx = torch.arange(0, max_seq_len, device=device, dtype=dtype)
+        denom = theta ** (torch.arange(0, d_k, 2, device=device, dtype=dtype) / d_k)
+        theta_i_k = idx.unsqueeze(1) / denom.unsqueeze(0)
+
+        cos_cache = torch.cos(theta_i_k)
+        sin_cache = torch.sin(theta_i_k)
+
+        # makes tensors part of the module so caches move to GPU/CPU with the model
+        self.register_buffer("cos_cache", cos_cache, persistent=False)
+        self.register_buffer("sin_cache", sin_cache, persistent=False)
+
+    def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
+        # x: (..., seq_len, d_k)
+        # token_positions: (..., seq_len)
+        # return a tensor of same shape
+        assert x.shape[-1] == self.d_k
+
+        # get the cos and sin values for the given token positions
+        cos_vals = self.cos_cache[token_positions]
+        sin_vals = self.sin_cache[token_positions]
+
+        x_even = x[..., 0::2]
+        x_odd = x[..., 1::2]
+
+        x_even_rot = x_even * cos_vals - x_odd * sin_vals
+        x_odd_rot = x_even * sin_vals + x_odd * cos_vals
+        
+        result = torch.zeros_like(x)
+        result[..., 0::2] = x_even_rot  # Put rotated even dims back in positions 0,2,4,...
+        result[..., 1::2] = x_odd_rot   # Put rotated odd dims back in positions 1,3,5,...
+        
+        return result
