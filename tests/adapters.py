@@ -91,9 +91,9 @@ def run_swiglu(
 
     swiglu = SwiGLU(d_model, d_ff)
     swiglu.load_state_dict({
-        {"w1": w1_weight},
-        {"w2": w2_weight},
-        {"w3": w3_weight}
+        "W1": w1_weight,
+        "W2": w2_weight,
+        "W3": w3_weight
     })
     return swiglu.forward(in_features)
 
