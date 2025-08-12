@@ -150,3 +150,28 @@ def softmax(x: torch.Tensor, dim: int) -> torch.Tensor:
     denom = torch.sum(numerator, dim=dim, keepdim=True)
 
     return numerator / denom
+
+def scaled_dot_product_attention(Q, K, V, mask: torch.Tensor | None) -> torch.Tensor:
+    """
+    Args:
+        Q: (... seq_len_q d_k)
+        K: (... seq_len_k d_k)
+        V: (... seq_len_k d_v)
+        mask: (seq_len_q, seq_len_k), bool tensor.
+    """
+    assert Q.shape[-1] == K.shape[-1]
+    assert K.shape[-2] == V.shape[-2]
+
+    d_k = Q.shape[-1]
+
+    attn_weights = einsum(Q, K, "... seq_len_q d_k, ... seq_len_k d_k -> ... seq_len_q seq_len_k")
+    attn_weights = attn_weights / sqrt(d_k)
+
+    if mask is not None:
+        attn_weights = attn_weights.masked_fill(mask == 0, float("-inf"))
+
+    attn = softmax(attn_weights, dim=-1)
+    
+    res = einsum(attn, V, "... seq_len_q seq_len_k, ... seq_len_k d_v -> ... seq_len_q d_v")
+    return res
+
