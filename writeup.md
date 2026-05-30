@@ -61,6 +61,10 @@ UnicodeDecodeError: 'utf-8' codec can't decode byte 0x80 in position 0: invalid 
 
 # Problem (train_bpe_expts_owt)
 
-Ran it with the no-heap implementation and did not complete even after 2.5 hours. Need to implement heap optimization...
+(a) Training on 5000 documents took 28 minutes. The longest token in the vocabulary is '—————————————————————-' (length 64). From inspecting the file, seems like many documents are using '—————————————————————-' as visual separator.
 
+(b) 69.6% of TinyStories tokens exist in OpenWebText's vocab, but only 21.7% of OpenWebText's vocab exist in TinyStories. This makes sense since OWT's tokenizer underwent 3.2x more merges so it learned more tokens that TinyStories didn't. And most TinyStories merges OWT also learned.
+Both tokenizers peak at 5 bytes, but OWT has a heavier right tail with more tokens up to 13+ bytes.
+
+![token_length_distribution](./plots/token_length_distribution.png)
 

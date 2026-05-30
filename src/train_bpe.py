@@ -4,10 +4,11 @@ from multiprocessing import Pool
 import regex as re
 import collections
 from collections import Counter
+from tqdm import tqdm
 
 
-NUM_CHUNKS = 8
-NUM_PROCESSES = 4
+NUM_CHUNKS = 64
+NUM_PROCESSES = 8
 
 PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 
@@ -141,6 +142,7 @@ def train_bpe(
     # thus, bpe training speed can be improved by indexing the counts of all pairs
     # and incrementally updating these counts, rather than explicitly iterating over
     # each pair of bytes to count pair frequencies
+    pbar = tqdm(total=vocab_size - len(vocab), desc="BPE merges")
     while len(vocab) < vocab_size:
         # pick the most frequent pair from pair_freqs
         pair_to_merge = get_pair_to_merge(pair_freqs)
@@ -183,7 +185,7 @@ def train_bpe(
             for new_pair in zip(new_subwords[:-1], new_subwords[1:]):
                 pair_positions[new_pair].add(pretoken_id)
                 pair_freqs[new_pair] += freq
-    
+        pbar.update(1)
     # print(f"[DBG] final merges: {merges}")
     return vocab, merges
 
