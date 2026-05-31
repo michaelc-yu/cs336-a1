@@ -10,6 +10,7 @@ import torch
 from torch import Tensor, nn
 
 from src.train_bpe import train_bpe
+from src.tokenizer import Tokenizer
 from src.layers import Linear, Embedding, RMSNorm, SwiGLU, RoPE, softmax, scaled_dot_product_attention
 
 
@@ -572,7 +573,7 @@ def get_tokenizer(
     Returns:
         A BPE tokenizer that uses the provided vocab, merges, and special tokens.
     """
-    raise NotImplementedError
+    return Tokenizer(vocab=vocab, merges=merges, special_tokens=special_tokens)
 
 
 def run_train_bpe(

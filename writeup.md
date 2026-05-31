@@ -68,3 +68,16 @@ Both tokenizers peak at 5 bytes, but OWT has a heavier right tail with more toke
 
 ![token_length_distribution](./plots/token_length_distribution.png)
 
+
+# Problem (tokenizer_experiments)
+
+(a) The compression ratio for the TinyStories tokenizer on 10 documents from TinyStories is 4.14.
+The compression ratio for the OpenWebText tokenizer on 10 documents from OpenWebText is 4.43.
+
+(b) OpenWebText with TinyStories tokenizer gets a compression ratio of 3.06. It gets a lower bytes/token ratio because the TinyStories tokenizer was trained less (underwent less merges), so it didn't learn many merges that OpenWebText did, thus it must split words more when operating on OpenWebText.
+
+(c) The tokenizer took 5 minutes to tokenize the tinystories dataset (23.7 MB). 825,000 MB / 4.74 MB = 174,000 minutes = 121 days. So a really really long time on a single CPU without heap optimization.
+
+(d) uint16 is more memory efficient and also fits the vocab size.
+
+
