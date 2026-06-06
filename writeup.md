@@ -93,27 +93,28 @@ Total per transformer block is about: 10,240,000 + 20,480,000 = 30,720,000
 Total is about: (48 x 30,720,000) + 80,411,200 = 1,554,971,200 =~ 1.5B parameters
 
 (b)
-Attention projections:
--$W_Q x$: (d x d)(T x d) = $2Td^2$
--$W_K x$: (d x d)(T x d) = $2Td^2$
--$W_V x$: (d x d)(T x d) = $2Td^2$
--$QK^T$: (T x d)(d x T) = $2T^2d$
 
-Attention weighted value: (T x T)(T x d) = $2T^2d$
-Output projection: (T x d)(d x d) = $2Td^2$
+Attention projections:
+- $W_Q x$: (d x d)(T x d) = $2Td^2$
+- $W_K x$: (d x d)(T x d) = $2Td^2$
+- $W_V x$: (d x d)(T x d) = $2Td^2$
+- $QK^T$: (T x d)(d x T) = $2T^2d$
+- Attention weighted value: (T x T)(T x d) = $2T^2d$
+- Output projection: (T x d)(d x d) = $2Td^2$
 
 Altogether attention: $8Td^2$ + $4T^2d$
 
 Feedforward:
--1st layer: (T x d)(d x $d_{ff}$) = $2Tdd_{ff}$
--2nd layer: (T x $d_{ff}$)($d_{ff}$ x d) = $2Tdd_{ff}$
+- 1st layer: (T x d)(d x $d_{ff}$) = $2Tdd_{ff}$
+- 2nd layer: (T x $d_{ff}$)($d_{ff}$ x d) = $2Tdd_{ff}$
+
 Total = $4Tdd_{ff}$
 
 Total per layer: $8Td^2$ + $4T^2d$ + $4Tdd_{ff}$
 Total: L($8Td^2$ + $4T^2d$ + $4Tdd_{ff}$)
 
 Plug in 48 for L, 1024 for T, 1600 for d, and 6400 for $d_{ff}$
-Total FLOPs: 3.34 × $10^12$
+Total FLOPs: 3.34 × $10^{12}$
 
 (c) The sequence length is small relative to model width, so the FFN requires the most FLOPs, hence why we do MoE on the FFN sometimes!
 
@@ -121,14 +122,18 @@ Total FLOPs: 3.34 × $10^12$
 Assuming standard GPT-2 configs where $d_{ff}$ = 4d_model,
 
 GPT-2 small: num_layers = 12, d_model = 768, num_heads = 12, d_ff = 3072
-12 (8 x 1024 x 768^2 + 4 x 1024^2 x 768 + 4 x 1024 x 768 x 3072) =~ 2.13 x $10^11$ FLOPs
+
+12 (8 x 1024 x 768^2 + 4 x 1024^2 x 768 + 4 x 1024 x 768 x 3072) =~ 2.13 x $10^{11}$ FLOPs
 
 GPT-2 large: num_layers = 36, d_model = 1280, num_heads = 20, d_ff = 5120
-36 (8 x 1024 x 1280^2 + 4 x 1024^2 x 1280 + 4 x 1024 x 1280 x 5120) =~ 1.64 x $10^12$ FLOPs
+
+36 (8 x 1024 x 1280^2 + 4 x 1024^2 x 1280 + 4 x 1024 x 1280 x 5120) =~ 1.64 x $10^{12}$ FLOPs
 
 As model size increases, the FFNs and linear projection layers take up proportionally more total FLOPs because they scale quadratically with d_model.
 
-(e) 
+(e)
+
 48 (8 x 16384 x 1600^2 + 4 x 16384^2 x 1600 + 4 x 16384 x 1600 x 6400)
+
 The FLOPs become dominated by the attention score calculations since they scale quadratically with context length.
 
