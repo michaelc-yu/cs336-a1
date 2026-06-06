@@ -48,7 +48,7 @@ class Embedding(nn.Module):
         return self.embedding_matrix[token_ids]
 
 class RMSNorm(nn.Module):
-    def __init__(self, d_model, eps, device=None, dtype=None):
+    def __init__(self, d_model, eps=1e-5, device=None, dtype=None):
         super().__init__()
         self.d_model = d_model
         self.eps = eps
@@ -174,4 +174,82 @@ def scaled_dot_product_attention(Q, K, V, mask: torch.Tensor | None) -> torch.Te
     
     res = einsum(attn, V, "... seq_len_q seq_len_k, ... seq_len_k d_v -> ... seq_len_q d_v")
     return res
+
+class MultiHeadSelfAttention(nn.Module):
+    def __init__(
+        self,
+        d_model: int,
+        num_heads: int,
+        theta: float | None = None,
+        max_seq_len: int | None = None,
+        device = None,
+        dtype = None
+    ):
+        super().__init__()
+        self.d_model = d_model
+        self.num_heads = num_heads
+
+        d = d_model // num_heads
+        
+        self.use_rope = False
+        if theta and max_seq_len:
+            self.use_rope = True
+            self.rope = RoPE(theta=theta, d_k=d, max_seq_len=max_seq_len)
+        
+        std = sqrt(2 / (d_model + d_model))
+        self.W_Q = nn.Parameter(
+            torch.nn.init.trunc_normal_(
+                torch.zeros((d * num_heads, d_model)), mean=0, std=std, a=-3*std, b=3*std
+            )
+        )
+        self.W_K = nn.Parameter(
+            torch.nn.init.trunc_normal_(
+                torch.zeros((d * num_heads, d_model)), mean=0, std=std, a=-3*std, b=3*std
+            )
+        )
+        self.W_V = nn.Parameter(
+            torch.nn.init.trunc_normal_(
+                torch.zeros((d * num_heads, d_model)), mean=0, std=std, a=-3*std, b=3*std
+            )
+        )
+        self.W_O = nn.Parameter(
+            torch.nn.init.trunc_normal_(
+                torch.zeros((d_model, d * num_heads)), mean=0, std=std, a=-3*std, b=3*std
+            )
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x: "... seq_len d_in"
+        seq_len = x.shape[-2]
+        # d_in should be equal to d_model
+        d = self.d_model // self.num_heads
+
+        # 1: project
+        Q = einsum(self.W_Q, x, "d_out d_in, ... seq_len d_in -> ... seq_len d_out")
+        K = einsum(self.W_K, x, "d_out d_in, ... seq_len d_in -> ... seq_len d_out")
+        V = einsum(self.W_V, x, "d_out d_in, ... seq_len d_in -> ... seq_len d_out")
+
+        # 2: reshape/split to (..., num_heads, seq_len, d)
+        Q = rearrange(Q, "... seq_len (num_heads d_out) -> ... num_heads seq_len d_out", num_heads=self.num_heads, d_out=d)
+        K = rearrange(K, "... seq_len (num_heads d_out) -> ... num_heads seq_len d_out", num_heads=self.num_heads, d_out=d)
+        V = rearrange(V, "... seq_len (num_heads d_out) -> ... num_heads seq_len d_out", num_heads=self.num_heads, d_out=d)
+
+        # 3: apply rope if needed
+        if self.use_rope:
+            # positions: (..., seq_len)
+            positions = torch.arange(0, seq_len)
+            Q = self.rope.forward(Q, positions)
+            K = self.rope.forward(K, positions)
+        
+        # 4: scaled dot product attention
+        # lower triangular mask to prevent attention to future tokens
+        mask = torch.tril(torch.ones((seq_len, seq_len), dtype=torch.bool, device=x.device))
+        attn_out = scaled_dot_product_attention(Q, K, V, mask)
+
+        # 5: concat heads
+        attn_out = rearrange(attn_out, "... num_heads seq_len d_out -> ... seq_len (num_heads d_out)", num_heads=self.num_heads, d_out=d)
+
+        # 6: final linear projection
+        result = einsum(attn_out, self.W_O, "... seq_len d_in, d_model d_in -> ... seq_len d_model")
+        return result
 
