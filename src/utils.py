@@ -109,3 +109,17 @@ def load_data(dataset: np.array, batch_size: int, context_length: int, device: s
     return torch.tensor(x, dtype=torch.long, device=device), torch.tensor(y, dtype=torch.long, device=device)
 
 
+def save_checkpoint(model: torch.nn.Module, optimizer: torch.optim.Optimizer, iteration: int, out: str):
+    obj = {}
+    obj['model_state_dict'] = model.state_dict()
+    obj['optimizer_state_dict'] = optimizer.state_dict()
+    obj['iteration'] = iteration
+    torch.save(obj, out)
+
+def load_checkpoint(src: str, model: torch.nn.Module, optimizer: torch.optim.Optimizer):
+    states = torch.load(src)
+    model.load_state_dict(states['model_state_dict'])
+    optimizer.load_state_dict(states['optimizer_state_dict'])
+    return states["iteration"]
+
+

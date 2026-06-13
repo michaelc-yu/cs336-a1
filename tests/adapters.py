@@ -13,7 +13,7 @@ from src.train_bpe import train_bpe
 from src.tokenizer import Tokenizer
 from src.layers import Linear, Embedding, RMSNorm, SwiGLU, RoPE, softmax, scaled_dot_product_attention, MultiHeadSelfAttention
 from src.transformer import TransformerBlock, TransformerLM
-from src.utils import cross_entropy, AdamW, cosine_lr_schedule, gradient_clipping, load_data
+from src.utils import cross_entropy, AdamW, cosine_lr_schedule, gradient_clipping, load_data, save_checkpoint, load_checkpoint
 
 
 def run_linear(
@@ -596,7 +596,7 @@ def run_save_checkpoint(
             we've completed.
         out (str | os.PathLike | BinaryIO | IO[bytes]): Path or file-like object to serialize the model, optimizer, and iteration to.
     """
-    raise NotImplementedError
+    save_checkpoint(model=model, optimizer=optimizer, iteration=iteration, out=out)
 
 
 def run_load_checkpoint(
@@ -617,7 +617,8 @@ def run_load_checkpoint(
     Returns:
         int: the previously-serialized number of iterations.
     """
-    raise NotImplementedError
+    iterations = load_checkpoint(src=src, model=model, optimizer=optimizer)
+    return iterations
 
 
 def get_tokenizer(
