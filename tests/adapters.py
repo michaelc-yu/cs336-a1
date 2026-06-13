@@ -13,6 +13,7 @@ from src.train_bpe import train_bpe
 from src.tokenizer import Tokenizer
 from src.layers import Linear, Embedding, RMSNorm, SwiGLU, RoPE, softmax, scaled_dot_product_attention, MultiHeadSelfAttention
 from src.transformer import TransformerBlock, TransformerLM
+from src.utils import cross_entropy, AdamW, cosine_lr_schedule, gradient_clipping
 
 
 def run_linear(
@@ -529,7 +530,7 @@ def run_cross_entropy(inputs: Float[Tensor, " batch_size vocab_size"], targets: 
     Returns:
         Float[Tensor, ""]: The average cross-entropy loss across examples.
     """
-    raise NotImplementedError
+    return cross_entropy(logits=inputs, targets=targets)
 
 
 def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float) -> None:
@@ -541,14 +542,14 @@ def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm:
 
     The gradients of the parameters (parameter.grad) should be modified in-place.
     """
-    raise NotImplementedError
+    return gradient_clipping(parameters, max_l2_norm)
 
 
 def get_adamw_cls() -> type[torch.optim.Optimizer]:
     """
     Returns a torch.optim.Optimizer that implements AdamW.
     """
-    raise NotImplementedError
+    return AdamW
 
 
 def run_get_lr_cosine_schedule(
@@ -576,7 +577,7 @@ def run_get_lr_cosine_schedule(
     Returns:
         Learning rate at the given iteration under the specified schedule.
     """
-    raise NotImplementedError
+    return cosine_lr_schedule(t=it, lr_max=max_learning_rate, lr_min=min_learning_rate, T_w=warmup_iters, T_c=cosine_cycle_iters)
 
 
 def run_save_checkpoint(

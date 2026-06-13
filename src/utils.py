@@ -1,0 +1,101 @@
+import torch
+from collections.abc import Callable, Iterable
+from typing import Optional
+import math
+import numpy as np
+
+
+def cross_entropy(logits, targets):
+    """
+    Compute the cross-entropy loss between logits and targets.
+    """
+    # for numerical stability
+    largest = torch.max(logits, dim=-1, keepdim=True).values
+    logits = logits - largest
+
+    # get the logits corresponding to the target tokens
+    target_logits = torch.gather(
+        logits,
+        dim=-1,
+        index=targets.unsqueeze(-1)
+    ).squeeze(-1)
+
+    # negative log likelihood
+    # likelihood is just the softmax of the target logits, which is exp(target_logits) / sum(exp(logits))
+    # log(a/b) = log(a) - log(b)
+    # -log(a/b) = -(log(a) - log(b)) = log(b) - log(a)
+    log_sum_exp = torch.log(torch.sum(torch.exp(logits), dim=-1))
+    return torch.mean(log_sum_exp - target_logits)
+
+
+class AdamW(torch.optim.Optimizer):
+    def __init__(self, params, lr, betas, eps, weight_decay):
+        if lr < 0:
+            raise ValueError(f"Invalid learning rate: {lr}")
+        if betas[0] < 0 or betas[0] < 0:
+            raise ValueError(f"Invalid betas: {betas}")
+        if weight_decay < 0:
+            raise ValueError(f"Invalid weight_decay: {weight_decay}")
+        defaults = dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay)
+        super().__init__(params, defaults)
+
+    def step(self, closure: Optional[Callable] = None):
+        loss = None if closure is None else closure()
+        for group in self.param_groups:
+            lr = group['lr']
+            betas = group['betas']
+            eps = group['eps']
+            weight_decay = group['weight_decay']
+
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+
+                state = self.state[p]
+
+                grad = p.grad.data
+
+                t = state.get('t', 1)
+                m = state.get('m', torch.zeros_like(p.data))
+                v = state.get('v', torch.zeros_like(p.data))
+                m = betas[0] * m + (1 - betas[0]) * grad
+                v = betas[1] * v + (1 - betas[1]) * (grad * grad)
+                
+                adjusted_lr = lr * (math.sqrt(1 - betas[1] ** t) / (1 - betas[0] ** t))
+                p.data -= adjusted_lr * (m / torch.sqrt(v + eps))
+                p.data -= lr * weight_decay * p.data
+
+                state['t'] = t + 1
+                state['m'] = m
+                state['v'] = v
+        return loss
+
+
+def cosine_lr_schedule(t, lr_max, lr_min, T_w, T_c):
+    """
+    Compute the learning rate at time step t using a cosine schedule with warmup.
+    """
+    if t < T_w:
+        return lr_max * t / T_w
+    elif T_w <= t <= T_c:
+        return lr_min + 0.5 * (1 + math.cos(math.pi * (t - T_w) / (T_c - T_w))) * (lr_max - lr_min)
+    else:
+        return lr_min
+
+
+def gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float):
+    eps = 1e-6
+
+    grad = [p.grad for p in parameters if p.grad is not None]
+    grads_flat = torch.cat([g.detach().flatten() for g in grad])
+    
+    l2_norm = torch.norm(grads_flat, 2)
+    if l2_norm < max_l2_norm:
+        return l2_norm
+    else:
+        factor = max_l2_norm / (l2_norm + eps)
+        for g in grad:
+            g *= factor
+
+
+
