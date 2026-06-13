@@ -98,4 +98,14 @@ def gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm: flo
             g *= factor
 
 
+def load_data(dataset: np.array, batch_size: int, context_length: int, device: str):
+    sz = len(dataset)
+    max_start_idx = sz - context_length - 1
+    start_idx = np.random.randint(0, max_start_idx + 1, size=batch_size)
+
+    x = np.stack([dataset[i:i+context_length] for i in start_idx])
+    y = np.stack([dataset[i+1:i+context_length+1] for i in start_idx])
+
+    return torch.tensor(x, dtype=torch.long, device=device), torch.tensor(y, dtype=torch.long, device=device)
+
 

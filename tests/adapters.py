@@ -13,7 +13,7 @@ from src.train_bpe import train_bpe
 from src.tokenizer import Tokenizer
 from src.layers import Linear, Embedding, RMSNorm, SwiGLU, RoPE, softmax, scaled_dot_product_attention, MultiHeadSelfAttention
 from src.transformer import TransformerBlock, TransformerLM
-from src.utils import cross_entropy, AdamW, cosine_lr_schedule, gradient_clipping
+from src.utils import cross_entropy, AdamW, cosine_lr_schedule, gradient_clipping, load_data
 
 
 def run_linear(
@@ -498,7 +498,7 @@ def run_get_batch(
         is the sampled input sequences, and the second tuple item is the corresponding
         language modeling labels.
     """
-    raise NotImplementedError
+    return load_data(dataset=dataset, batch_size=batch_size, context_length=context_length, device=device)
 
 
 def run_softmax(in_features: Float[Tensor, " ..."], dim: int) -> Float[Tensor, " ..."]:
