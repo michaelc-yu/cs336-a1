@@ -3,6 +3,8 @@ from collections.abc import Callable, Iterable
 from typing import Optional
 import math
 import numpy as np
+from tokenizer import Tokenizer
+from layers import softmax
 
 
 def cross_entropy(logits, targets):
@@ -98,7 +100,7 @@ def gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm: flo
             g *= factor
 
 
-def load_data(dataset: np.array, batch_size: int, context_length: int, device: str):
+def load_data(dataset: np.ndarray, batch_size: int, context_length: int, device: str):
     sz = len(dataset)
     max_start_idx = sz - context_length - 1
     start_idx = np.random.randint(0, max_start_idx + 1, size=batch_size)
@@ -122,4 +124,49 @@ def load_checkpoint(src: str, model: torch.nn.Module, optimizer: torch.optim.Opt
     optimizer.load_state_dict(states['optimizer_state_dict'])
     return states["iteration"]
 
+
+def decode(model, prompt: torch.Tensor, vocab, merges, special_tokens, max_tokens: int, temperature: float, top_p_threshold: float):
+    generated_tokens = []
+    
+    tokenizer = Tokenizer(vocab=vocab, merges=merges, special_tokens=special_tokens)
+
+    endoftext_token = tokenizer.encode("<|endoftext|>")[0]
+
+    with torch.no_grad():
+        while len(generated_tokens) < max_tokens:
+            if generated_tokens and generated_tokens[-1] == endoftext_token:
+                break
+            # out is tensor of logits
+            out = model(prompt)
+
+            # scale the logits by temperature before turning them into probabilities
+            out = out / temperature
+
+            probs = softmax(out, dim=-1)[-1]
+
+            # top-p sampling
+            sorted_probs, indices = torch.sort(probs, descending=True)
+            accumulated = 0
+            p = len(vocab)
+            for i in range(len(sorted_probs)):
+                accumulated += sorted_probs[i]
+                if accumulated >= top_p_threshold:
+                    p = i + 1
+                    break
+            
+            # keep only nucleus tokens
+            nucleus_probs = sorted_probs[:p]
+            nucleus_indices = indices[:p]
+
+            # renormalize
+            final_probs = nucleus_probs / nucleus_probs.sum()
+
+            # sample
+            sampled = torch.multinomial(final_probs, num_samples=1)
+            next_token = nucleus_indices[sampled].item()
+
+            generated_tokens.append(next_token)
+            prompt = torch.cat([prompt, torch.tensor([[next_token]])])
+
+    return tokenizer.decode(generated_tokens)
 

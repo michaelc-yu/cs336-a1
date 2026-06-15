@@ -4,7 +4,7 @@ import einops
 from einops import rearrange, einsum
 from math import sqrt, exp
 import numpy
-from .layers import Linear, Embedding, MultiHeadSelfAttention, RMSNorm, SwiGLU
+from layers import Linear, Embedding, MultiHeadSelfAttention, RMSNorm, SwiGLU
 
 
 class TransformerBlock(nn.Module):
@@ -22,7 +22,7 @@ class TransformerBlock(nn.Module):
 
 
 class TransformerLM(nn.Module):
-    def __init__(self, vocab_size: int, context_length: int, num_layers: int, num_heads: int, d_model: int, d_ff: int, rope_theta, **kwargs):
+    def __init__(self, vocab_size: int, context_length: int, num_layers: int, num_heads: int, d_model: int, d_ff: int, rope_theta: float, **kwargs):
         super().__init__()
         self.input_embedding = Embedding(vocab_size, d_model, **kwargs)
         self.transformer_blocks = nn.ModuleList([
