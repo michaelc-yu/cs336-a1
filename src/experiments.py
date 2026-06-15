@@ -1,0 +1,105 @@
+import pickle
+import numpy as np
+import torch
+from tokenizer import Tokenizer
+from transformer import TransformerLM
+from utils import load_checkpoint, decode
+from training_loop import train
+
+vocab_size, context_length, d_model, d_ff, rope_theta, num_layers, num_heads = None, None, None, None, None, None, None
+
+DEFAULT = True
+
+if DEFAULT:
+    vocab_size = 10000
+    context_length = 256
+    d_model = 512
+    d_ff = 1344
+    rope_theta = 10000
+    num_layers = 4
+    num_heads = 16
+
+
+def prepare_dataset(text_path, pkl_path, out_path):
+    with open(pkl_path, 'rb') as f:
+        bpe = pickle.load(f)
+    tokenizer = Tokenizer(vocab=bpe['vocab'], merges=bpe['merges'], special_tokens=["<|endoftext|>"])
+
+    with open(text_path, 'r') as f:
+        text = f.read(1_000_000)
+
+    tokens = tokenizer.encode(text)
+    arr = np.array(tokens, dtype=np.int32)
+    np.save(out_path, arr)
+    print(f"Saved {len(arr)} tokens to {out_path}", flush=True)
+
+
+
+def run_experiment():
+    prepare_dataset(
+        text_path="../data/tinystories.txt",
+        pkl_path="../tinystories-train-bpe.pkl",
+        out_path="../tinystories_tokens.npy"
+    )
+
+    dataset = np.load("../tinystories_tokens.npy")
+
+    # with open('../tinystories-train-bpe.pkl', 'rb') as f:
+    #     bpe = pickle.load(f)
+
+    train(
+        vocab_size=vocab_size,
+        context_length=context_length,
+        num_layers=num_layers,
+        num_heads=num_heads,
+        d_model=d_model,
+        d_ff=d_ff,
+        rope_theta=rope_theta,
+        learning_rate=1e-3,
+        lr_min=1e-4,
+        warmup_iters=100,
+        betas=(0.9, 0.95),
+        eps=1e-8,
+        weight_decay=0.01,
+        max_l2_norm=1.0,
+        num_iterations=300,
+        save_every=50,
+        dataset=dataset,
+        batch_size=32,
+        device="cpu",
+        ckpt_path=None,
+        out_path="../experiments/tinystories_ckpt.pt",
+        resume=False,
+    )
+
+def generate(ckpt_path, prompt_text, max_tokens=200, temperature=1.0, top_p=0.9):
+    with open('../tinystories-train-bpe.pkl', 'rb') as f:
+        bpe = pickle.load(f)
+
+    model = TransformerLM(
+        vocab_size=vocab_size,
+        context_length=context_length,
+        num_layers=num_layers,
+        num_heads=num_heads,
+        d_model=d_model,
+        d_ff=d_ff,
+        rope_theta=rope_theta,
+    )
+    optimizer = torch.optim.SGD(model.parameters(), lr=0)
+    load_checkpoint(ckpt_path, model, optimizer)
+    model.eval()
+
+    tokenizer = Tokenizer(vocab=bpe['vocab'], merges=bpe['merges'], special_tokens=["<|endoftext|>"])
+    prompt_tokens = tokenizer.encode(prompt_text)
+    prompt = torch.tensor([prompt_tokens], dtype=torch.long)
+
+    output = decode(model, prompt, bpe['vocab'], bpe['merges'], ["<|endoftext|>"], max_tokens, temperature, top_p)
+    print(output)
+
+
+if __name__ == '__main__':
+    # run_experiment()
+    generate("../tinystories_ckpt_iter250.pt", prompt_text="Once upon a time")
+
+
+
