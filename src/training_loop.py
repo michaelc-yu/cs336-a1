@@ -4,6 +4,7 @@ from typing import Optional
 import math
 import argparse
 import numpy as np
+import os
 from transformer import TransformerLM
 from utils import cross_entropy, AdamW, cosine_lr_schedule, gradient_clipping, load_data, save_checkpoint, load_checkpoint
 import wandb
@@ -30,13 +31,17 @@ def train(
     num_iterations: int,
     save_every: int,
     dataset: np.ndarray,
+    val_set: np.ndarray,
     batch_size: int,
     device: str,
 
     ckpt_path: str,
     out_path: str,
     resume: bool,
+    run_name: str = None,
 ):
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+
     model = TransformerLM(
         vocab_size=vocab_size,
         context_length=context_length,
@@ -52,6 +57,7 @@ def train(
 
     wandb.init(
         project="cs336-a1",
+        name=run_name,
         config={
             "vocab_size": vocab_size,
             "num_heads": num_heads,
@@ -107,6 +113,17 @@ def train(
             out_file = out_path.replace(".pt", f"_iter{i}.pt")
             save_checkpoint(model, optimizer, i, out_file)
             print(f"Checkpoint at iteration {i} saved to {out_file}")
+        
+        if i % 20 == 0:
+            model.eval()
+            with torch.no_grad():
+                val_inputs, val_outputs = load_data(dataset=val_set, batch_size=batch_size, context_length=context_length, device=device)
+                val_loss = cross_entropy(model(val_inputs), val_outputs)
+            val_perplexity = torch.exp(val_loss)
+            wandb_data["val/loss"] = val_loss.item()
+            wandb_data["val/perplexity"] = val_perplexity.item()
+            print(f"Validation Loss: {val_loss.item():.4f}, Validation Perplexity: {val_perplexity.item():.4f}")
+            model.train()
 
         wandb.log(wandb_data)
 

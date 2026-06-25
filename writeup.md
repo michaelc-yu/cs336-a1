@@ -139,3 +139,47 @@ As model size increases, the FFNs and linear projection layers take up proportio
 
 The FLOPs become dominated by the attention score calculations since they scale quadratically with context length.
 
+
+# Problem (adamwAccounting)
+
+(a) Peak memory = parameters + activations + gradients + optimizer state
+
+
+
+# Problem (learning_rate)
+
+(a) ![learning_rate_ablations](./plots/learning_rate_ablations.png)
+
+Learning rate sweep over 1e-4, 3e-4, 1e-3, 3e-3, and 1e-2.
+
+I mistakenly only logged the train loss at this step and not val loss. However, these were the results:
+
+lr = 1e-4 -> loss = 0.13531 ppl = 1.14489
+lr = 3e-4 -> loss = 0.0684 ppl = 1.0708
+lr = 1e-3 -> loss = 0.03911 ppl = 1.03989
+lr = 3e-3 -> loss = 0.04395 ppl = 1.0449
+lr = 1e-2 -> loss = 0.1329 ppl = 1.1421
+
+(b) Loss improves up to 1e-3 then degrades at 3e-3 and 1e-2, which seems to be the edge of stability.
+
+
+# Problem (batch_size_experiment)
+
+![batch_size_ablations](./plots/batch_size_ablations.png)
+![batch_size_ablations_val](./plots/batch_size_ablations_val.png)
+
+As seen from train/loss, larger batches converge faster because each step uses a more accurate gradient estimate. However, smaller batch sizes generalizes better despite noisier training. All runs overfit (as evident from the validation loss decreasing then increasing again) because I only used a subset of TinyStories due to CPU constraints. I stopped at a batch size of 128 before encountering OOM.
+
+# Problem (generate)
+
+Prompt: "Once upon a time"
+
+Generation: ", there was a little girl named Lily. She loved to play with her toys and go on vacations with her family. One day, Lily's mom told her they couldn't go on vacation because they didn't have enough money. Lily was sad, but she understood.
+
+Lily's dad worked hard every day, but they still couldn't afford a vacation. One day, Lily saw her dad cutting the grass in their yard. She asked if she could help, and her dad said yes. Lily worked hard and helped her dad finish cutting the grass.
+
+After they finished, Lily's dad gave her some money for doing such a good job. Lily was so happy! She realized that working hard can help you get what you want, even if it's not a vacation. That was a harsh lesson, but Lily learned that hard work can pay off in the end.<|endoftext|>"
+
+
+Observations: The output is surprisingly fluent. With a higher temperature, the generations are more varied - sometimes a story about Lily, other times stories about Timmy or some fish. When setting temperature closer to 0, the generations are mostly about Lily.
+

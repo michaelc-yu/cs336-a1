@@ -43,9 +43,13 @@ def run_experiment():
     )
 
     dataset = np.load("../tinystories_tokens.npy")
+    val_dataset = np.load("../tinystories_val_tokens.npy")
 
     # with open('../tinystories-train-bpe.pkl', 'rb') as f:
     #     bpe = pickle.load(f)
+
+    batch_sz = 256
+    lr = 8e-3
 
     train(
         vocab_size=vocab_size,
@@ -55,21 +59,23 @@ def run_experiment():
         d_model=d_model,
         d_ff=d_ff,
         rope_theta=rope_theta,
-        learning_rate=1e-3,
+        learning_rate=lr,
         lr_min=1e-4,
         warmup_iters=100,
         betas=(0.9, 0.95),
         eps=1e-8,
         weight_decay=0.01,
         max_l2_norm=1.0,
-        num_iterations=300,
-        save_every=50,
+        num_iterations=5000,
+        save_every=500,
         dataset=dataset,
-        batch_size=32,
+        val_set=val_dataset,
+        batch_size=batch_sz,
         device="cpu",
         ckpt_path=None,
-        out_path="../experiments/tinystories_ckpt.pt",
+        out_path=f"../experiments_bs_{batch_sz}_max_lr_{lr}/tinystories_ckpt.pt",
         resume=False,
+        run_name=f"batchsz_{batch_sz}_max_lr_{lr}",
     )
 
 def generate(ckpt_path, prompt_text, max_tokens=200, temperature=1.0, top_p=0.9):
@@ -99,7 +105,7 @@ def generate(ckpt_path, prompt_text, max_tokens=200, temperature=1.0, top_p=0.9)
 
 if __name__ == '__main__':
     # run_experiment()
-    generate("../tinystories_ckpt_iter250.pt", prompt_text="Once upon a time")
+    generate("../experiments_max_lr_0.001/tinystories_ckpt.pt", prompt_text="Once upon a time", max_tokens=300, temperature=0.8, top_p=0.9)
 
 
 

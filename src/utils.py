@@ -142,7 +142,7 @@ def decode(model, prompt: torch.Tensor, vocab, merges, special_tokens, max_token
             # scale the logits by temperature before turning them into probabilities
             out = out / temperature
 
-            probs = softmax(out, dim=-1)[-1]
+            probs = softmax(out, dim=-1)[0, -1]
 
             # top-p sampling
             sorted_probs, indices = torch.sort(probs, descending=True)
@@ -166,7 +166,7 @@ def decode(model, prompt: torch.Tensor, vocab, merges, special_tokens, max_token
             next_token = nucleus_indices[sampled].item()
 
             generated_tokens.append(next_token)
-            prompt = torch.cat([prompt, torch.tensor([[next_token]])])
+            prompt = torch.cat([prompt, torch.tensor([[next_token]])], dim=1)
 
     return tokenizer.decode(generated_tokens)
 
